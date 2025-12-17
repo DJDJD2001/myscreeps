@@ -4,7 +4,7 @@ automated(intended) scripts for game [screeps](https://screeps.com/)
 
 env:
 ```
-npm
+nodejs
 ```
 
 build:
