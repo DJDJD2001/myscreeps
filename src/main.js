@@ -28,6 +28,13 @@ export const loop = function () {
         }
     }
     
+    // 清理Memory
+    for (const name in Memory.creeps) {
+        if (!Game.creeps[name]) {
+            delete Memory.creeps[name];
+        }
+    }
+
     // 统计creep数量
     const creepCountByBase = {};
     for (const name in Game.creeps) {
