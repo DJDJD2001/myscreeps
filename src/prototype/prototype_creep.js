@@ -1,4 +1,4 @@
-module.exports = function () {
+export const mountCreepPrototype = function () {
     _.assign(Creep.prototype, extensions)
 }
 

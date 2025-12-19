@@ -1,6 +1,6 @@
-module.exports = function () {
-    _.assign(Spawn.prototype, extensions)
-}
+export const mountSpawnPrototype = function () {
+    _.assign(Spawn.prototype, extensions);
+};
 
 const extensions = {
     /**
@@ -14,7 +14,11 @@ const extensions = {
         ) {
             return OK;
         }
-        const ifspawnSuccess = this.spawnCreep(this.room.memory.spawnList[0]);
+        const ifspawnSuccess = this.spawnCreep(
+            this.room.memory.spawnList[0].body,
+            this.room.memory.spawnList[0].name,
+            this.room.memory.spawnList[0].opts
+        );
         if (ifspawnSuccess === OK) {
             this.room.memory.spawnList.shift();
         }

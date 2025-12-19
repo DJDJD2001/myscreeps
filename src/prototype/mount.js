@@ -1,14 +1,14 @@
-const mountCreep = require('./prototype_creep')
-const mountRoomPosition = require('./prototype_RoomPosition')
-const mountSpawn = require('./prototype_spawn')
-const mountRoom = require('./prototype_room')
+import { mountCreepPrototype } from './prototype_creep'
+import { mountRoomPositionPrototype } from './prototype_RoomPosition'
+import { mountSpawnPrototype } from './prototype_spawn'
+import { mountRoomPrototype } from './prototype_room'
 
 /**
  * 挂载所有原型扩展
  */
-module.exports = function () {
-    mountCreep()
-    mountRoomPosition()
-    mountSpawn()
-    mountRoom()
+export const mountAll = function () {
+    mountCreepPrototype();
+    mountRoomPositionPrototype();
+    mountSpawnPrototype();
+    mountRoomPrototype();
 }

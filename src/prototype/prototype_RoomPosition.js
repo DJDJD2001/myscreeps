@@ -1,4 +1,4 @@
-module.exports = function () {
+export const mountRoomPositionPrototype = function () {
     _.assign(RoomPosition.prototype, extensions)
 }
 
@@ -15,7 +15,7 @@ const extensions = {
                 const x = this.x + dx;
                 const y = this.y + dy;
                 if (x < 0 || x >= 50 || y < 0 || y >= 50) continue;
-                const terrain = this.room.getTerrain().get(x, y);
+                const terrain = Game.rooms[this.roomName].getTerrain().get(x, y);
                 if (terrain !== TERRAIN_MASK_WALL) {
                     count++;
                 }

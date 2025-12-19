@@ -1,5 +1,6 @@
 // 挂载原型扩展
-require('./prototype/mount')()
+import { mountAll } from './prototype/mount'
+mountAll();
 
 // 导入creep工作逻辑
 import { doBuilder } from './roles/builder'
@@ -9,8 +10,13 @@ import { doPioneer } from './roles/pioneer'
 import { doCarrier } from './roles/carrier'
 
 // 初始化
-for (var room in Game.rooms) {
+for (const room in Game.rooms) {
     Game.rooms[room].initMemory();
+}
+
+// 初始更新一次各房间creep配置
+for (const room in Game.rooms) {
+    Game.rooms[room].updateCreepConfig();
 }
 
 export const loop = function () {
@@ -23,7 +29,7 @@ export const loop = function () {
 
     // 更新各房间creep配置
     if (Game.time % 200 === 0) {
-        for (var room in Game.rooms) {
+        for (const room in Game.rooms) {
             Game.rooms[room].updateCreepConfig();
         }
     }
@@ -50,17 +56,27 @@ export const loop = function () {
     }
 
     // 维护各房间spawnList
-    for (var room in Game.rooms) {
+    for (const room in Game.rooms) {
         Game.rooms[room].updateSpawnList(creepCountByBase[room] || {});
     }
 
+    // 更新spawn信息（由于没有creep的房间，建筑不会出现在Game.spawns等全局对象下，所以需要将spawn的name更新到memory中才能调用得到）
+    for (const room in Game.rooms) {
+        Game.rooms[room].updateSpawnInfo();
+    }
+
     // 执行spawn逻辑
-    for (var spawn in Game.spawns) {
-        Game.spawns[spawn].trySpawn();
+    for (const room in Game.rooms) {
+        const spawns = Game.rooms[room].memory.spawnIds.map(id => Game.getObjectById(id));
+        for (const spawn of spawns) {
+            if (spawn) {
+                spawn.trySpawn();
+            }
+        }
     }
 
     // 执行creep逻辑
-    for (var name in Game.creeps) {
+    for (const name in Game.creeps) {
         const creep = Game.creeps[name];
         switch (creep.memory.role) {
             case 'builder':

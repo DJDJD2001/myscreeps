@@ -1,5 +1,5 @@
-module.exports = function () {
-    _.assign(Spawn.prototype, extensions)
+export const mountRoomPrototype = function () {
+    _.assign(Room.prototype, extensions)
 }
 
 const extensions = {
@@ -8,9 +8,12 @@ const extensions = {
      * @return {void}
      */
     initMemory() {
-        if (!this.memory.sourceAccessableCount) {
-            this.memory.sourceAccessableCount = sources.map(source => {
-                return source.pos.lookForAvailableAdjacentCount();
+        if (!this.memory.source) {
+            this.memory.source = this.find(FIND_SOURCES).map(source => {
+                return {
+                    id: source.id, 
+                    count: source.pos.lookForAvailableAdjacentCount()
+                };
             });
         }
         if (!this.memory.spawnList) {
@@ -32,9 +35,9 @@ const extensions = {
         const maxCost = this.energyCapacityAvailable;
 
         // 获取建筑信息
-        const sources = this.find(FIND_SOURCES);
+        const sources = this.memory.source;
         const sourceCount = sources.length;
-        const sourceAccessableCount = this.memory.sourceAccessableCount; // 每个source周围可供采集的地块数量
+        const sourceAccessableCount = sources.map(s => s.count); // 每个source周围可供采集的地块数量
 
         const containerCount = this.find(FIND_MY_STRUCTURES, {
             filter: {structureType: STRUCTURE_CONTAINER}
@@ -102,8 +105,8 @@ const extensions = {
             // harvester根据source数量决定
             // 对每个source，拉满效率需要5个WORK，但由于sourceAccessableCount有限
             // 计算出source拉满需要多少harvester，取这个值和sourceAccessableCount的较小值
-            for (let i = 0; i < sourceCount; i++) {
-                harvesterNum += Math.min(Math.ceil(5 / harvesterBody.filter(part => part === WORK).length), sourceAccessableCount[i]);
+            for (const s of sources) {
+                harvesterNum += Math.min(Math.ceil(5 / harvesterBody.filter(part => part === WORK).length), s.count);
             }
 
             // carrier与source数量相同
@@ -152,7 +155,8 @@ const extensions = {
             return;
         }
         for (const role in this.memory.creepConfig) {
-            const existNum = creepList[role] + this.memory.spawnList.filter(creep => creep.role === role).length;
+            existingCreepNum = creepList[role] || 0;
+            const existNum = existingCreepNum + this.memory.spawnList.filter(creep => creep.opts.memory.role === role).length;
             const desiredNum = this.memory.creepConfig[role].num;
             if (existNum < desiredNum) {
                 this.memory.spawnList.push({
@@ -165,8 +169,17 @@ const extensions = {
                         }
                     }
                 });
+                console.log(`Room ${this.name} added ${role} to spawnList. Current: ${existNum}, Desired: ${desiredNum}`);
             }
         }
-    }
-        
+    },
+
+    /**
+     * 更新房间内spawnId到memory中
+     * @return {void}
+     */
+    updateSpawnInfo() {
+        const mySpawns = this.find(FIND_MY_SPAWNS);
+        this.memory.spawnIds = mySpawns.map(spawn => spawn.id);
+    },
 }
