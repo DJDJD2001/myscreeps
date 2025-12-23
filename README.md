@@ -24,25 +24,29 @@ dist/main.js
 
 ## Memory中额外维护了以下几个内容：
 
-Memory.rooms[roomName]      .spawnList: 生成列表
+Memory.rooms[roomName]
 
-                            .creepConfig: 配置该房间spawn需要负责的creep职业、身材、数量
+    .spawnList: 生成列表
 
-                            .source: 该房间sourceId，以及对应的周围有几个空位可供开采
+    .creepConfig: 配置该房间spawn需要负责的creep职业、身材、数量
 
-                            .spawnId: spawnId
+    .source: 该房间sourceId，以及对应的周围有几个空位可供开采
 
-                            .autoPlan: 自动规划的结果，结构为[]，每项包含三个字段{pos: {x:x, y:y}, type: STRUCTURE_*, rcl: [1-8]}
+    .spawnId: spawnId
 
-Memory.creeps[creepName]    .role: creep职业
+    .autoPlan: 自动规划的结果，结构为[]，每项包含三个字段{pos: {x:x, y:y}, type: STRUCTURE_*, rcl: [1-8]}
 
-                            .base: creep来自于哪个房间(roomName)
+Memory.creeps[creepName]
 
-                            .targetSourceId: 不是所有creep都有，表明该creep要去哪个source采集
+    .role: creep职业
 
-                            .workingState: 状态机
+    .base: creep来自于哪个房间(roomName)
 
-                            .workingPlace：对于某些creep，要指定他们的工作位置（如不带carry的harvester），存储x, y, roomName
+    .targetSourceId: 不是所有creep都有，表明该creep要去哪个source采集
+
+    .workingState: 状态机
+
+    .workingPlace：对于某些creep，要指定他们的工作位置（如不带carry的harvester），存储x, y, roomName
 
 ## TODO
 
