@@ -107,10 +107,22 @@ const extensions = {
     },
 
     fillEnergy() {
+        if (this.fillEnergyinExtension()) {
+            return true;
+        } else if (this.fillEnergyinTower()) {
+            return true;
+        } else if (this.fillEnergyinStorage()) {
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    fillEnergyinExtension() {
         const target = this.pos.findClosestByPath(FIND_STRUCTURES, {
             filter: (structure) => {
                 return (structure.structureType === STRUCTURE_SPAWN
-                        || structure.structureType === STRUCTURE_EXTENSION)
+                    || structure.structureType === STRUCTURE_EXTENSION)
                     && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
             }
         });
@@ -121,21 +133,38 @@ const extensions = {
             }
             return true;
         } else {
-            const tower = this.pos.findClosestByPath(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return structure.structureType === STRUCTURE_TOWER
-                        && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                }
-            });
-            if (tower) {
-                if (this.transfer(tower, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    this.moveTo(tower, {visualizePathStyle: {stroke: '#ffffff'}});
-                    this.say('🚚');
-                }
-                return true;
-            } else {
-                return false;
+            return false;
+        }
+    },
+
+    fillEnergyinTower() {
+        const tower = this.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_TOWER
+                    && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
             }
+        });
+        if (tower) {
+            if (this.transfer(tower, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(tower, {visualizePathStyle: {stroke: '#ffffff'}});
+                this.say('🚚');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    fillEnergyinStorage() {
+        const storage = this.room.storage;
+        if (storage && storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            if (this.transfer(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
+                this.say('🚚');
+            }
+            return true;
+        } else {
+            return false;
         }
     },
 
@@ -154,7 +183,9 @@ const extensions = {
 
     repairStructure() {
         const damagedStructure = this.pos.findClosestByPath(FIND_STRUCTURES, {
-            filter: (structure) => structure.hits < structure.hitsMax
+            filter: (structure) => structure.structureType !== STRUCTURE_WALL
+                && structure.structureType !== STRUCTURE_RAMPART
+                && structure.hits < structure.hitsMax
         });
         if (damagedStructure) {
             if (this.repair(damagedStructure) === ERR_NOT_IN_RANGE) {
