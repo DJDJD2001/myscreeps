@@ -12,7 +12,7 @@ const extensions = {
         // 分配source
         if (!this.memory.targetSourceId) {
             const sourceCountById = {};
-            const creepsInMyRoom = this.room.find(FIND_MY_CREEPS, {filter: {role: this.memory.role}});
+            const creepsInMyRoom = this.room.find(FIND_MY_CREEPS, {filter: {memory: {role: this.memory.role}}});
             for (const other of creepsInMyRoom) {
                 if (!other || !other.memory) continue;
                 const otherSourceId = other.memory.targetSourceId;
@@ -33,7 +33,7 @@ const extensions = {
 
             // 如果分配都满了，随机分配一个
             if (!this.memory.targetSourceId) {
-                const randomSource = source[Math.floor(Math.random() * source.length)];
+                const randomSource = source[Game.time % source.length];
                 this.memory.targetSourceId = randomSource.id;
             }
         }

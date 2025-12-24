@@ -9,7 +9,7 @@
 export function doAutoPlanning() {
     let room;
     
-    for (const flag in _.values(Game.flags)) {
+    for (const flag of _.values(Game.flags)) {
         if (flag.color === COLOR_RED || flag.secondaryColor === COLOR_WHITE) {
             room = flag.room;
             flag.remove();

@@ -6,6 +6,207 @@ const mountCreepPrototype = function () {
 
 const extensions$3 = {
 
+    /**
+     * 分配source id到memory.targetSourceId
+     * @return {void}
+     */
+    setSourceId() {
+        // 分配source
+        if (!this.memory.targetSourceId) {
+            const sourceCountById = {};
+            const creepsInMyRoom = this.room.find(FIND_MY_CREEPS, {filter: {memory: {role: this.memory.role}}});
+            for (const other of creepsInMyRoom) {
+                if (!other || !other.memory) continue;
+                const otherSourceId = other.memory.targetSourceId;
+                if (otherSourceId) {
+                    sourceCountById[otherSourceId] = (sourceCountById[otherSourceId] || 0) + 1;
+                }
+            }
+
+            // 根据room.memory.source.id选择source
+            const source = this.room.memory.source;
+            for (const s of source) {
+                const count = sourceCountById[s.id] || 0;
+                if (count < s.count) {
+                    this.memory.targetSourceId = s.id;
+                    break;
+                }
+            }
+
+            // 如果分配都满了，随机分配一个
+            if (!this.memory.targetSourceId) {
+                const randomSource = source[Game.time % source.length];
+                this.memory.targetSourceId = randomSource.id;
+            }
+        }
+    },
+
+    /**
+     * 执行任务队列
+     * @param {*} tasks 任务队列，存储方法名字符串数组
+     */
+    execute(tasks) {
+        for (const task of tasks) {
+            if (this[task]()) {
+                break;
+            }
+        }
+    },
+
+    // creep可执行的任务，返回true表示任务执行完成，false表示未执行，继续下一个任务
+
+    getEnergy() {
+        if (this.memory.workingState !== 'harvesting') {
+            return false;
+        }
+
+        const target = this.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return (structure.structureType === STRUCTURE_CONTAINER
+                        || structure.structureType === STRUCTURE_STORAGE)
+                    && structure.store[RESOURCE_ENERGY] > 0;
+            }
+        });
+        if (target) {
+            if (this.withdraw(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(target, {visualizePathStyle: {stroke: '#ffaa00'}});
+                this.say('🔄');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    moveToWorkingPlace() {
+        if (this.memory.workingPlace) {
+            const workingPos = new RoomPosition(
+                this.memory.workingPlace.x,
+                this.memory.workingPlace.y,
+                this.memory.workingPlace.roomName
+            );
+            if (!this.pos.isEqualTo(workingPos)) {
+                this.moveTo(workingPos, {visualizePathStyle: {stroke: '#0000ff'}});
+                this.say('🚩');
+                return true;
+            }
+        }
+        return false;
+    },
+
+    harvestSource() {
+        if (this.memory.workingState !== 'harvesting') {
+            return false;
+        }
+        
+        const source = Game.getObjectById(this.memory.targetSourceId);
+        
+        if (this.harvest(source) === ERR_NOT_IN_RANGE) {
+            this.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+            this.say('⛏️');
+        }
+        return true;
+    },
+
+    fillEnergy() {
+        if (this.fillEnergyinExtension()) {
+            return true;
+        } else if (this.fillEnergyinTower()) {
+            return true;
+        } else if (this.fillEnergyinStorage()) {
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    fillEnergyinExtension() {
+        const target = this.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return (structure.structureType === STRUCTURE_SPAWN
+                    || structure.structureType === STRUCTURE_EXTENSION)
+                    && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            }
+        });
+        if (target) {
+            if (this.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+                this.say('🚚');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    fillEnergyinTower() {
+        const tower = this.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_TOWER
+                    && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            }
+        });
+        if (tower) {
+            if (this.transfer(tower, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(tower, {visualizePathStyle: {stroke: '#ffffff'}});
+                this.say('🚚');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    fillEnergyinStorage() {
+        const storage = this.room.storage;
+        if (storage && storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            if (this.transfer(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
+                this.say('🚚');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    buildConstruction() {
+        const constructionSite = this.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
+        if (constructionSite) {
+            if (this.build(constructionSite) === ERR_NOT_IN_RANGE) {
+                this.moveTo(constructionSite, {visualizePathStyle: {stroke: '#ffffff'}});
+                this.say('🚧');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    repairStructure() {
+        const damagedStructure = this.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => structure.structureType !== STRUCTURE_WALL
+                && structure.structureType !== STRUCTURE_RAMPART
+                && structure.hits < structure.hitsMax
+        });
+        if (damagedStructure) {
+            if (this.repair(damagedStructure) === ERR_NOT_IN_RANGE) {
+                this.moveTo(damagedStructure, {visualizePathStyle: {stroke: '#00ff00'}});
+                this.say('🔧');
+            }
+            return true;
+        } else {
+            return false;
+        }
+    },
+
+    upgradeController() {
+        if (this.upgradeController(this.room.controller) === ERR_NOT_IN_RANGE) {
+            this.moveTo(this.room.controller, {visualizePathStyle: {stroke: '#ff00ff'}});
+            this.say('⚡');
+        }
+        return true;
+    },
 };
 
 const mountRoomPositionPrototype = function () {
@@ -109,38 +310,32 @@ const extensions = {
         }).length;
 
         // 根据可用能量更新creep配置
-        // 仅前期使用，固定250 cost
+        // 仅前期使用，若能量允许，增加更多WORK
         const pioneerBody = [MOVE, MOVE, WORK, CARRY]; 
-        
+        let pioneerEnergy = maxCost - 250;
+        while (pioneerEnergy >= 250) {
+            pioneerBody.push(WORK, MOVE, MOVE, CARRY);
+            pioneerEnergy -= 250;
+        }
+
         // 固定1个CARRY，其余能量用于WORK和MOVE，WORK+CARRY:MOVE=2:1（默认pioneer已经把路修好了）
         const upgraderBody = [];
         upgraderBody.push(WORK, CARRY, MOVE);
-        let remainingEnergy = maxCost - 200;
-        while (remainingEnergy >= 250) {
+        let upgraderEnergy = maxCost - 200;
+        while (upgraderEnergy >= 250) {
             upgraderBody.push(WORK, WORK, MOVE);
-            remainingEnergy -= 250;
+            upgraderEnergy -= 250;
         }
         
-        // 0 CARRY, WORK:MOVE=2:1（默认pioneer已经把路和container修好了）
-        const harvesterBody = [];
-        if (maxCost >= 750) {
-            // 再多也没意义，此时可以省掉CARRY，让harvester坐在container上
-            harvesterBody.push(WORK, WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE);
-        } else {
-            harvesterBody.push(WORK, CARRY, MOVE);
-            let harvesterEnergy = maxCost - 200;
-            while (harvesterEnergy >= 250) {
-                harvesterBody.push(WORK, WORK, MOVE);
-                harvesterEnergy -= 250;
-            }
-        }
+        // 0 CARRY, WORK:MOVE=2:1（默认pioneer已经把路和container修好了），只有750及以上才使用，6个WORK已经拉满了
+        const harvesterBody = [WORK, WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE];
 
-        // WORK:CARRY:MOVE=1:1:2，修建筑修墙，不一定走路
+        // WORK:CARRY:MOVE=1:1:2，修建筑修墙，不一定走路，所以保证没路满速
         const builderBody = [];
         let builderEnergy = maxCost;
-        while (builderEnergy >= 300) {
+        while (builderEnergy >= 250) {
             builderBody.push(WORK, CARRY, MOVE, MOVE);
-            builderEnergy -= 300;
+            builderEnergy -= 250;
         }
 
         // CARRY:MOVE=2:1，最大500容量（默认路已经修好了）
@@ -163,7 +358,7 @@ const extensions = {
         let harvesterNum = 0;
         let builderNum = 0;
         let carrierNum = 0;
-        if (maxCost < 450 || containerCount < sourceCount) {
+        if (maxCost < 750 || containerCount < sourceCount + 1) {
             // maxCost不够或container没修完时，只生成pioneer，填满每个source周围的可用地块再+3
             pioneerNum = sourceAccessableCount.reduce((a, b) => a + b, 0) + 3;
         } else {
@@ -240,12 +435,40 @@ const extensions = {
     },
 
     /**
-     * 更新房间内spawnId到memory中
+     * 执行tower逻辑
      * @return {void}
      */
-    updateSpawnInfo() {
-        const mySpawns = this.find(FIND_MY_SPAWNS);
-        this.memory.spawnIds = mySpawns.map(spawn => spawn.id);
+    executeTowers() {
+        const towers = this.find(FIND_MY_STRUCTURES, {
+            filter: {structureType: STRUCTURE_TOWER}
+        });
+        for (const tower of towers) {
+            // 优先攻击敌人
+            const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+            if (closestHostile) {
+                tower.attack(closestHostile);
+                continue;
+            }
+            // 其次治疗我方受伤单位
+            const closestInjured = tower.pos.findClosestByRange(FIND_MY_CREEPS, {
+                filter: (creep) => creep.hits < creep.hitsMax
+            });
+            if (closestInjured) {
+                tower.heal(closestInjured);
+                continue;
+            }
+            // 最后修理受损建筑，优先修理road和container
+            const closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
+                filter: (structure) => structure.hits < structure.hitsMax &&
+                    (structure.structureType === STRUCTURE_ROAD ||
+                     structure.structureType === STRUCTURE_CONTAINER ||
+                     structure.hits < 0.5 * structure.hitsMax)
+            });
+            if (closestDamagedStructure) {
+                tower.repair(closestDamagedStructure);
+                continue;
+            }
+        }
     },
 };
 
@@ -259,42 +482,82 @@ const mountAll = function () {
     mountRoomPrototype();
 };
 
+const doBuilder = function (creep) {
+
+    if (creep.store[RESOURCE_ENERGY] === 0) {
+        creep.memory.workingState = 'harvesting';
+    } else if (creep.store.getFreeCapacity() === 0) {
+        creep.memory.workingState = 'working';
+    }
+
+    const tasks = [];
+
+    tasks.push('getEnergy');
+    tasks.push('buildConstruction');
+    tasks.push('repairStructure');
+    tasks.push('upgradeController');
+
+    creep.execute(tasks);
+};
+
 /**
- * pioneer只在初期（没有container和足够的extension时）使用，负责以下工作：
- * 1. 采集能量
- * 2. 搬运能量到spawn或extension
- * 3. 修建construction site
- * 4. 升级控制器
+ * harvester，只负责采集能量，没有CARRY，采集的直接掉进container
+ * @param {Creep} creep 执行该角色的creep
+ * @returns {void}
+ */
+const doHarvester = function (creep) {
+
+    creep.setSourceId();
+
+    // 确定采集位置（source旁边的container位置）
+    if (!creep.memory.workingPlace) {
+        const place = source.pos.findInRange(FIND_STRUCTURES, 1, {
+            filter: {structureType: STRUCTURE_CONTAINER}
+        })[0]?.pos;
+        if (place) {
+            creep.memory.workingPlace.x = place.x;
+            creep.memory.workingPlace.y = place.y;
+            creep.memory.workingPlace.roomName = place.roomName;
+        } else {
+            console.log(`harvester ${creep.name} in room ${creep.room.name} cannot find workingPlace`);
+        }
+    }
+    
+    const tasks = [];
+    
+    tasks.push('moveToWorkingPlace');
+    tasks.push('harvestSource');
+
+    creep.execute(tasks);
+};
+
+const doUpgrader = function (creep) {
+
+    if (creep.store[RESOURCE_ENERGY] === 0) {
+        creep.memory.workingState = 'harvesting';
+    } else if (creep.store.getFreeCapacity() === 0) {
+        creep.memory.workingState = 'working';
+    }
+
+    const tasks = [];
+
+    tasks.push('getEnergy');
+    tasks.push('upgradeController');
+
+    creep.execute(tasks);
+};
+
+/**
+ * pioneer只在初期（没有container和足够的extension时）使用
  * @param {*} creep 
  */
 const doPioneer = function (creep) {
 
-    // 分配source：用正确的迭代方式并增加空检查，避免访问 undefined
-    if (!creep.memory.targetSourceId) {
-        const sourceCountById = {};
-        const creepsInMyRoom = creep.room.find(FIND_MY_CREEPS);
-        for (const other of creepsInMyRoom) {
-            if (!other || !other.memory) continue;
-            const otherSourceId = other.memory.targetSourceId;
-            if (otherSourceId) {
-                sourceCountById[otherSourceId] = (sourceCountById[otherSourceId] || 0) + 1;
-            }
-        }
-
-        // 根据room.memory.source.id选择source
-        const source = creep.room.memory.source;
-        for (const s of source) {
-            const count = sourceCountById[s.id] || 0;
-            if (count < s.count) {
-                creep.memory.targetSourceId = s.id;
-                break;
-            }
-        }
-    }
+    creep.setSourceId();
 
     // 状态机：
     // 1. 如果没有携带能量，去采集
-    // 2. 如果能量采满，按照优先级执行：搬运-修建-升级
+    // 2. 如果能量采满，按照优先级执行
     if (creep.store[RESOURCE_ENERGY] === 0) {
         creep.memory.workingState = 'harvesting';
     } else if (creep.store.getFreeCapacity() === 0) {
@@ -302,57 +565,57 @@ const doPioneer = function (creep) {
     }
 
     // 执行逻辑
-    if (creep.memory.workingState === 'harvesting') {
-        const source = Game.getObjectById(creep.memory.targetSourceId);
-        if (creep.harvest(source) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
-            creep.say('⛏️');
-        }
-    } else if (creep.memory.workingState === 'working') {
-        // 优先搬运能量到spawn或extension
-        const target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return (structure.structureType === STRUCTURE_SPAWN 
-                        || structure.structureType === STRUCTURE_EXTENSION) 
-                    && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-            }
-        });
-        if (target) {
-            if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
-                creep.say('🚚');
-            }
-            return;
-        }
-        // 其次修建
-        const constructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
-        if (constructionSite) {
-            if (creep.build(constructionSite) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(constructionSite, {visualizePathStyle: {stroke: '#ffffff'}});
-                creep.say('🚧');
-            }
-            return;
-        }
-        // 最后升级控制器
-        if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
-            creep.say('⚡');
-        }
+    const tasks = [];
+    
+    tasks.push('harvestSource');
+    tasks.push('fillEnergy');
+    tasks.push('buildConstruction');
+    tasks.push('repairStructure');
+    tasks.push('upgradeController');
+
+    creep.execute(tasks);
+};
+
+const doCarrier = function (creep) {
+
+    if (creep.store[RESOURCE_ENERGY] === 0) {
+        creep.memory.workingState = 'harvesting';
+    } else if (creep.store[RESOURCE_ENERGY] > 0) {
+        creep.memory.workingState = 'working';
     }
+
+    const tasks = [];
+
+    tasks.push('getEnergy');
+    tasks.push('fillEnergy');
+
+    creep.execute(tasks);
 };
 
 // 挂载原型扩展
 mountAll();
 
+global.doRoles = {};
+
+doRoles.builder = doBuilder;
+doRoles.harvester = doHarvester;
+doRoles.upgrader = doUpgrader;
+doRoles.pioneer = doPioneer;
+doRoles.carrier = doCarrier;
+
+// --------------------------------------------------
+
 // 初始化
-for (const room in Game.rooms) {
-    Game.rooms[room].initMemory();
+for (const room of _.values(Game.rooms)) {
+    room.initMemory();
 }
 
 // 初始更新一次各房间creep配置
-for (const room in Game.rooms) {
-    Game.rooms[room].updateCreepConfig();
+for (const room of _.values(Game.rooms)) {
+    room.updateCreepConfig();
 }
+
+// --------------------------------------------------
 
 const loop = function () {
 
@@ -362,13 +625,6 @@ const loop = function () {
         return;
     }
 
-    // 更新各房间creep配置
-    if (Game.time % 200 === 0) {
-        for (const room in Game.rooms) {
-            Game.rooms[room].updateCreepConfig();
-        }
-    }
-    
     // 清理Memory
     for (const name in Memory.creeps) {
         if (!Game.creeps[name]) {
@@ -376,10 +632,16 @@ const loop = function () {
         }
     }
 
-    // 统计creep数量
+    // 更新各房间creep配置
+    if (Game.time % 200 === 0) {
+        for (const room of _.values(Game.rooms)) {
+            room.updateCreepConfig();
+        }
+    }
+
+    // 统计creep数量，更新各房间spawnList
     const creepCountByBase = {};
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
+    for (const creep of _.values(Game.creeps)) {
         const base = creep.memory.base;
         if (!creepCountByBase[base]) {
             creepCountByBase[base] = {};
@@ -389,20 +651,17 @@ const loop = function () {
         }
         creepCountByBase[base][creep.memory.role]++;
     }
-
-    // 维护各房间spawnList
-    for (const room in Game.rooms) {
-        Game.rooms[room].updateSpawnList(creepCountByBase[room] || {});
+    for (const room of _.values(Game.rooms)) {
+        room.updateSpawnList(creepCountByBase[room.name] || {});
     }
 
-    // 更新spawn信息（由于没有creep的房间，建筑不会出现在Game.spawns等全局对象下，所以需要将spawn的name更新到memory中才能调用得到）
-    for (const room in Game.rooms) {
-        Game.rooms[room].updateSpawnInfo();
+    // 更新spawnIds信息，执行spawn逻辑
+    // （由于没有creep的房间，建筑不会出现在Game.spawns等全局对象下，所以需要将spawn的name更新到memory中才能调用得到）
+    for (const room of _.values(Game.rooms)) {
+        room.memory.spawnIds = room.find(FIND_MY_SPAWNS).map(spawn => spawn.id);
     }
-
-    // 执行spawn逻辑
-    for (const room in Game.rooms) {
-        const spawns = Game.rooms[room].memory.spawnIds.map(id => Game.getObjectById(id));
+    for (const room of _.values(Game.rooms)) {
+        const spawns = room.memory.spawnIds.map(id => Game.getObjectById(id));
         for (const spawn of spawns) {
             if (spawn) {
                 spawn.trySpawn();
@@ -410,24 +669,15 @@ const loop = function () {
         }
     }
 
+    // 执行Tower逻辑
+    for (const room of _.values(Game.rooms)) {
+        room.executeTowers();
+    }
+
     // 执行creep逻辑
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-        switch (creep.memory.role) {
-            case 'builder':
-                break;
-            case 'harvester':
-                break;
-            case 'upgrader':
-                break;
-            case 'pioneer':
-                doPioneer(creep);
-                break;
-            case 'carrier':
-                break;
-            default:
-                console.log(`Unknown role ${creep.memory.role} for creep ${creep.name}`);
-                break;
+    for (const creep of _.values(Game.creeps)) {
+        if (creep.memory.role && doRoles[creep.memory.role]) {
+            doRoles[creep.memory.role](creep);
         }
     }
 };
