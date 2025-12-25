@@ -204,4 +204,40 @@ const extensions = {
             }
         }
     },
+
+    /**
+     * autoplan用，找到自己storage到某点的路径
+     * @param {RoomPosition} pos 目标位置
+     * @param {number} range 可选，目标可达范围，默认0
+     * @return {null|{path, ops, cost, incomplete}} 路径查找结果，找不到返回null
+     */
+    findPathToStorage(pos, range = 0) {
+        const storage = this.memory.autoPlan.find(o => o.structureType === STRUCTURE_STORAGE);
+        if (!storage) return null;
+        return PathFinder.search(
+            new RoomPosition (storage.pos.x, storage.pos.y, this.name), // origin
+            {pos: pos, range: range}, // goal
+            {
+                plainCost: 2,
+                swampCost: 10,
+                roomCallback: function(roomName) {
+                    let room = Game.rooms[roomName];
+                    if (!room) return;
+
+                    let costs = new PathFinder.CostMatrix;
+
+                    // 如果是road，设置cost为1，如果是其他建筑，设置cost为不可穿过
+                    room.memory.autoPlan.forEach(o => {
+                        if (o.structureType === STRUCTURE_ROAD) {
+                            costs.set(o.pos.x, o.pos.y, 1);
+                        } else {
+                            costs.set(o.pos.x, o.pos.y, 0xff);
+                        }
+                    });
+
+                    return costs;
+                }
+            }
+        );
+    },
 }

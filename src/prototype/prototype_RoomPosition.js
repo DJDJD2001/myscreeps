@@ -22,5 +22,27 @@ const extensions = {
             }
         }
         return count;
+    },
+
+    /**
+     * autoplan用，找出指定范围内可以放置建筑的全部位置
+     * @param {number} range 查找范围(以this为中心，半径单位，默认5)
+     * @return {[RoomPosition]|null} 可用位置，找不到返回null
+     */
+    findAvailablePosition(range = 5) {
+        if (!this.roomName) return null;
+        const positions = [];
+        for (let dx = -range; dx <= range; dx++) {
+            for (let dy = -range; dy <= range; dy++) {
+                const x = this.x + dx;
+                const y = this.y + dy;
+                if (x < 0 || x >= 50 || y < 0 || y >= 50) continue;
+                const terrain = Game.rooms[this.roomName].getTerrain().get(x, y);
+                if (terrain === TERRAIN_MASK_WALL) continue;
+                positions.push(new RoomPosition(x, y, this.roomName));
+            }
+        }
+        return positions.length > 0 ? positions : null;
     }
+
 }

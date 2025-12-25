@@ -17,6 +17,8 @@ doRoles.upgrader = doUpgrader;
 doRoles.pioneer = doPioneer;
 doRoles.carrier = doCarrier;
 
+import { checkAutoPlanning } from './autoPlanning';
+
 // --------------------------------------------------
 
 // 初始化
@@ -45,6 +47,19 @@ export const loop = function () {
             delete Memory.creeps[name];
         }
     }
+
+    // 特判：如果是第一个房间的第一个spawn的话，执行一次自动规划
+    if (Game.spawns['Spawn1'] && !Game.spawns['Spawn1'].room.memory.autoPlan) {
+        Game.spawns['Spawn1'].room.createFlag(
+            Game.spawns['Spawn1'].pos.x,
+            Game.spawns['Spawn1'].pos.y,
+            'autoPlan' + Game.time,
+            COLOR_RED,
+            COLOR_WHITE
+        );
+    }
+
+    checkAutoPlanning();
 
     // 更新各房间creep配置
     if (Game.time % 200 === 0) {
